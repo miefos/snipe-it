@@ -40,7 +40,7 @@ return [
     'audited'				=> 'Audited',
     'audits'				=> 'Audits',
     'audit_report'			=> 'Revīzijas žurnāls',
-    'assets'				=> 'Aktīvi',
+    'assets'				=> 'Pamatlīdzekļi',
     'assets_audited'        => 'inventārs pārbaudīts',
     'assets_checked_in_count'     => 'inventārs noliktavā',
     'assets_checked_out_count'     => 'inventārs izsniegts',
