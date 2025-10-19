@@ -32,9 +32,16 @@ use App\Http\Controllers\MtlDocumentController;
 
 Route::group(['middleware' => 'auth'], function () {
 
-    // Generate MTL document for a user
-    // GET /users/{userId}/mtl
-    Route::get('/users/{userId}/mtl', [MtlDocumentController::class, 'generate'])
-        ->name('users.mtl');
+    // Generate MTL document for giving away items (Izsniegšanas lapa)
+    // Auth user gives, specified user receives
+    // GET /users/{userId}/mtl/giving
+    Route::get('/users/{userId}/mtl/giving', [MtlDocumentController::class, 'generateGiving'])
+        ->name('users.mtl.giving');
+
+    // Generate MTL document for receiving items (Saņemšanas lapa)
+    // Specified user gives, auth user receives
+    // GET /users/{userId}/mtl/receiving
+    Route::get('/users/{userId}/mtl/receiving', [MtlDocumentController::class, 'generateReceiving'])
+        ->name('users.mtl.receiving');
 
 });

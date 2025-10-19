@@ -244,10 +244,21 @@
 
                 @can('view', $user)
                   <div class="col-md-12" style="padding-top: 5px;">
-                    <form action="{{ route('users.mtl', ['userId' => $user->id]) }}" method="GET">
+                    <form action="{{ route('users.mtl.giving', ['userId' => $user->id]) }}" method="GET">
                       <button class="btn-block btn btn-sm btn-info btn-social hidden-print" rel="noopener">
                           <x-icon type="download" />
-                          Ģenerēt MTL lapu
+                          Izsniegšanas MTL lapa
+                      </button>
+                    </form>
+                  </div>
+                @endcan
+
+                @can('view', $user)
+                  <div class="col-md-12" style="padding-top: 5px;">
+                    <form action="{{ route('users.mtl.receiving', ['userId' => $user->id]) }}" method="GET">
+                      <button class="btn-block btn btn-sm btn-success btn-social hidden-print" rel="noopener">
+                          <x-icon type="download" />
+                          Saņemšanas MTL lapa
                       </button>
                     </form>
                   </div>
