@@ -27,7 +27,7 @@ class MtlDocumentController extends Controller
      */
     public function generateGiving($userId): StreamedResponse
     {
-        $user = User::findOrFail($userId);
+        $user = User::find($userId) ?? abort(404);
         $this->authorize('view', $user);
 
         $authUser = auth()->user();
@@ -46,7 +46,7 @@ class MtlDocumentController extends Controller
      */
     public function generateReceiving($userId): StreamedResponse
     {
-        $user = User::findOrFail($userId);
+        $user = User::find($userId) ?? abort(404);
         $this->authorize('view', $user);
 
         $authUser = auth()->user();
