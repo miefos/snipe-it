@@ -14,28 +14,18 @@ class MtlDocumentTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Ensure storage directory exists
         Storage::fake('local');
     }
 
-    public function testGivingMtlRequiresAuthentication()
+    public function testMtlRequiresAuthentication()
     {
         $user = User::factory()->create();
 
-        $this->get(route('users.mtl.giving', $user->id))
-            ->assertRedirect(route('login'));
+        $this->get(route('users.mtl.giving', $user->id))->assertRedirect(route('login'));
+        $this->get(route('users.mtl.receiving', $user->id))->assertRedirect(route('login'));
     }
 
-    public function testReceivingMtlRequiresAuthentication()
-    {
-        $user = User::factory()->create();
-
-        $this->get(route('users.mtl.receiving', $user->id))
-            ->assertRedirect(route('login'));
-    }
-
-    public function testGivingMtlRequiresViewPermission()
+    public function testMtlRequiresPermission()
     {
         $authUser = User::factory()->create();
         $targetUser = User::factory()->create();
@@ -43,220 +33,198 @@ class MtlDocumentTest extends TestCase
         $this->actingAs($authUser)
             ->get(route('users.mtl.giving', $targetUser->id))
             ->assertForbidden();
-    }
-
-    public function testReceivingMtlRequiresViewPermission()
-    {
-        $authUser = User::factory()->create();
-        $targetUser = User::factory()->create();
 
         $this->actingAs($authUser)
             ->get(route('users.mtl.receiving', $targetUser->id))
             ->assertForbidden();
     }
 
-    public function testCanGenerateGivingMtlDocument()
+    public function testGeneratesMtlDocumentsWithCorrectFilenames()
     {
-        $authUser = User::factory()->superuser()->create([
-            'first_name' => 'Admin',
-            'last_name' => 'User',
-            'email' => 'admin@example.com',
-            'phone' => '12345678',
-            'employee_num' => '12345',
-        ]);
+        $authUser = User::factory()->superuser()->create(['username' => 'authuser']);
+        $targetUser = User::factory()->create(['username' => 'targetuser']);
 
-        $targetUser = User::factory()->create([
-            'first_name' => 'Target',
-            'last_name' => 'User',
-            'email' => 'target@example.com',
-            'phone' => '87654321',
-            'employee_num' => '54321',
-        ]);
-
-        $response = $this->actingAs($authUser)
+        // Test giving MTL
+        $givingResponse = $this->actingAs($authUser)
             ->get(route('users.mtl.giving', $targetUser->id));
 
-        $response->assertOk();
-        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        $response->assertDownload();
-    }
+        $givingResponse->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            ->assertDownload();
 
-    public function testCanGenerateReceivingMtlDocument()
-    {
-        $authUser = User::factory()->superuser()->create([
-            'first_name' => 'Admin',
-            'last_name' => 'User',
-            'email' => 'admin@example.com',
-            'phone' => '12345678',
-            'employee_num' => '12345',
-        ]);
+        $givingDisposition = $givingResponse->headers->get('content-disposition');
+        $this->assertStringContainsString('MTL_Izsnieg', $givingDisposition);
+        $this->assertStringContainsString('targetuser', $givingDisposition);
 
-        $targetUser = User::factory()->create([
-            'first_name' => 'Target',
-            'last_name' => 'User',
-            'email' => 'target@example.com',
-            'phone' => '87654321',
-            'employee_num' => '54321',
-        ]);
+        $storedFilesAfterGiving = array_values(Storage::disk('local')->files('private_uploads/users'));
+        $this->assertCount(1, $storedFilesAfterGiving);
+        $this->assertTrue(str_contains($storedFilesAfterGiving[0], 'MTL_Izsnieg'));
+        $this->assertTrue(Storage::disk('local')->exists($storedFilesAfterGiving[0]));
 
-        $response = $this->actingAs($authUser)
+        // Test receiving MTL
+        $receivingResponse = $this->actingAs($authUser)
             ->get(route('users.mtl.receiving', $targetUser->id));
 
-        $response->assertOk();
-        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        $response->assertDownload();
-    }
+        $receivingResponse->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            ->assertDownload();
 
-    public function testGivingMtlIncludesAccessoriesFromReceiver()
-    {
-        $authUser = User::factory()->superuser()->create([
-            'first_name' => 'Giver',
-            'last_name' => 'User',
-        ]);
+        $receivingDisposition = $receivingResponse->headers->get('content-disposition');
+        $this->assertStringContainsString('MTL_Sa', $receivingDisposition);
+        $this->assertStringContainsString('em', $receivingDisposition);
+        $this->assertStringContainsString('anas', $receivingDisposition);
+        $this->assertStringContainsString('authuser', $receivingDisposition);
 
-        $targetUser = User::factory()->create([
-            'first_name' => 'Receiver',
-            'last_name' => 'User',
-        ]);
+        $storedFilesAfterReceiving = Storage::disk('local')->files('private_uploads/users');
+        $this->assertCount(2, $storedFilesAfterReceiving);
+        $this->assertNotEmpty(array_filter($storedFilesAfterReceiving, fn ($path) => str_contains($path, 'MTL_Izsnieg')));
+        $this->assertNotEmpty(array_filter($storedFilesAfterReceiving, fn ($path) => str_contains($path, 'MTL_Sa')));
 
-        // Create category for accessories
-        $category = Category::factory()->forAccessories()->create(['name' => 'Test Category']);
-
-        // Create and assign accessories to target user
-        $accessory = Accessory::factory()->create([
-            'name' => 'Test Accessory',
-            'model_number' => 'MODEL-123',
-            'category_id' => $category->id,
-        ]);
-
-        // Check out accessory to target user
-        AccessoryCheckout::create([
-            'accessory_id' => $accessory->id,
-            'assigned_to' => $targetUser->id,
-            'assigned_type' => User::class,
-            'note' => 'Test note',
-        ]);
-
-        $response = $this->actingAs($authUser)
-            ->get(route('users.mtl.giving', $targetUser->id));
-
-        $response->assertOk();
-        $response->assertDownload();
-    }
-
-    public function testReceivingMtlIncludesAccessoriesFromAuthUser()
-    {
-        $authUser = User::factory()->superuser()->create([
-            'first_name' => 'Receiver',
-            'last_name' => 'User',
-        ]);
-
-        $targetUser = User::factory()->create([
-            'first_name' => 'Giver',
-            'last_name' => 'User',
-        ]);
-
-        // Create category for accessories
-        $category = Category::factory()->forAccessories()->create(['name' => 'Test Category']);
-
-        // Create and assign accessories to auth user
-        $accessory = Accessory::factory()->create([
-            'name' => 'Test Accessory',
-            'model_number' => 'MODEL-456',
-            'category_id' => $category->id,
-        ]);
-
-        // Check out accessory to auth user
-        AccessoryCheckout::create([
-            'accessory_id' => $accessory->id,
-            'assigned_to' => $authUser->id,
-            'assigned_type' => User::class,
-            'note' => 'Receiving test note',
-        ]);
-
-        $response = $this->actingAs($authUser)
-            ->get(route('users.mtl.receiving', $targetUser->id));
-
-        $response->assertOk();
-        $response->assertDownload();
-    }
-
-    public function testMtlFileIsLoggedToUserUploads()
-    {
-        $authUser = User::factory()->superuser()->create();
-        $targetUser = User::factory()->create();
-
-        $this->actingAs($authUser)
-            ->get(route('users.mtl.giving', $targetUser->id));
-
-        // Check that action log was created
+        // Verify action log
         $this->assertDatabaseHas('action_logs', [
             'item_type' => User::class,
             'item_id' => $targetUser->id,
             'action_type' => 'uploaded',
         ]);
+
+        $this->assertDatabaseHas('action_logs', [
+            'item_type' => User::class,
+            'item_id' => $authUser->id,
+            'action_type' => 'uploaded',
+        ]);
     }
 
-    public function testGivingMtlFilenameContainsCorrectType()
-    {
-        $authUser = User::factory()->superuser()->create();
-        $targetUser = User::factory()->create(['username' => 'testuser']);
-
-        $response = $this->actingAs($authUser)
-            ->get(route('users.mtl.giving', $targetUser->id));
-
-        // Check that filename contains "Izsniegšanas" (URL-encoded as Izsnieg%C5%A1anas)
-        $contentDisposition = $response->headers->get('content-disposition');
-        $this->assertStringContainsString('MTL_Izsnieg', $contentDisposition);
-        $this->assertStringContainsString('anas', $contentDisposition);
-        $this->assertStringContainsString('testuser', $contentDisposition);
-    }
-
-    public function testReceivingMtlFilenameContainsCorrectType()
-    {
-        $authUser = User::factory()->superuser()->create(['username' => 'authuser']);
-        $targetUser = User::factory()->create(['username' => 'targetuser']);
-
-        $response = $this->actingAs($authUser)
-            ->get(route('users.mtl.receiving', $targetUser->id));
-
-        // Check that filename contains "Saņemšanas" (URL-encoded as Sa%C5%86em%C5%A1anas)
-        $contentDisposition = $response->headers->get('content-disposition');
-        $this->assertStringContainsString('MTL_Sa', $contentDisposition);
-        $this->assertStringContainsString('em', $contentDisposition);
-        $this->assertStringContainsString('anas', $contentDisposition);
-        $this->assertStringContainsString('authuser', $contentDisposition);
-    }
-
-    public function testMtlDocumentGroupsAccessoriesByType()
+    public function testMtlIncludesAccessoriesAndGroupsByType()
     {
         $authUser = User::factory()->superuser()->create();
         $targetUser = User::factory()->create();
+        $category = Category::factory()->forAccessories()->create();
 
-        $category = Category::factory()->forAccessories()->create(['name' => 'Clothing']);
+        // Create accessory checked out to target user (for giving MTL)
+        $givingAccessory = Accessory::factory()->create([
+            'name' => 'Test Accessory',
+            'model_number' => 'MODEL-123',
+            'category_id' => $category->id,
+        ]);
 
-        // Create one accessory type
-        $accessory = Accessory::factory()->create([
+        AccessoryCheckout::create([
+            'accessory_id' => $givingAccessory->id,
+            'assigned_to' => $targetUser->id,
+            'assigned_type' => User::class,
+            'note' => 'Test note',
+        ]);
+
+        // Test giving MTL includes accessories
+        $this->actingAs($authUser)
+            ->get(route('users.mtl.giving', $targetUser->id))
+            ->assertOk();
+
+        // Create accessory checked out to auth user (for receiving MTL)
+        $receivingAccessory = Accessory::factory()->create([
+            'name' => 'Receiving Accessory',
+            'model_number' => 'MODEL-456',
+            'category_id' => $category->id,
+        ]);
+
+        AccessoryCheckout::create([
+            'accessory_id' => $receivingAccessory->id,
+            'assigned_to' => $authUser->id,
+            'assigned_type' => User::class,
+            'note' => 'Receiving note',
+        ]);
+
+        // Test receiving MTL includes accessories
+        $this->actingAs($authUser)
+            ->get(route('users.mtl.receiving', $targetUser->id))
+            ->assertOk();
+
+        // Test grouping: check out same accessory 3 times
+        $groupingAccessory = Accessory::factory()->create([
             'name' => 'Jaka M',
             'model_number' => 'JAK-M',
             'category_id' => $category->id,
         ]);
 
-        // Check out the same accessory 3 times to target user
         for ($i = 0; $i < 3; $i++) {
             AccessoryCheckout::create([
-                'accessory_id' => $accessory->id,
+                'accessory_id' => $groupingAccessory->id,
                 'assigned_to' => $targetUser->id,
                 'assigned_type' => User::class,
-                'note' => 'Test checkout ' . ($i + 1),
             ]);
         }
 
-        $response = $this->actingAs($authUser)
-            ->get(route('users.mtl.giving', $targetUser->id));
+        // Verify document generates successfully with grouped accessories
+        $this->actingAs($authUser)
+            ->get(route('users.mtl.giving', $targetUser->id))
+            ->assertOk();
+    }
 
-        $response->assertOk();
-        // Document should be generated successfully
-        // The controller should group these 3 checkouts into 1 row with quantity 3
+    public function testMtlReturnsNotFoundForMissingUser()
+    {
+        $authUser = User::factory()->superuser()->create();
+
+        $this->actingAs($authUser)
+            ->get(route('users.mtl.giving', PHP_INT_MAX))
+            ->assertNotFound();
+
+        $this->actingAs($authUser)
+            ->get(route('users.mtl.receiving', PHP_INT_MAX))
+            ->assertNotFound();
+    }
+
+    public function testAuthorizedTargetUserCanGenerateGivingDocument()
+    {
+        $giver = User::factory()->superuser()->create(['username' => 'giveruser']);
+        $receiver = User::factory()->superuser()->create(['username' => 'receiveruser']);
+
+        $response = $this->actingAs($receiver)
+            ->get(route('users.mtl.giving', $giver->id));
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            ->assertDownload();
+
+        $disposition = $response->headers->get('content-disposition');
+        $this->assertStringContainsString('MTL_Izsnieg', $disposition);
+        $this->assertStringContainsString($giver->username, $disposition);
+
+        $storedFiles = Storage::disk('local')->files('private_uploads/users');
+        $this->assertCount(1, $storedFiles);
+        $this->assertNotEmpty(array_filter($storedFiles, fn ($path) => str_contains($path, 'MTL_Izsnieg')));
+
+        $this->assertDatabaseHas('action_logs', [
+            'item_type' => User::class,
+            'item_id' => $giver->id,
+            'action_type' => 'uploaded',
+        ]);
+    }
+
+    public function testAuthorizedTargetUserCanGenerateReceivingDocument()
+    {
+        $giver = User::factory()->superuser()->create(['username' => 'giveruser']);
+        $receiver = User::factory()->superuser()->create(['username' => 'receiveruser']);
+
+        $response = $this->actingAs($receiver)
+            ->get(route('users.mtl.receiving', $giver->id));
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            ->assertDownload();
+
+        $disposition = $response->headers->get('content-disposition');
+        $this->assertStringContainsString('MTL_Sa', $disposition);
+        $this->assertStringContainsString('em', $disposition);
+        $this->assertStringContainsString('anas', $disposition);
+        $this->assertStringContainsString($receiver->username, $disposition);
+
+        $storedFiles = Storage::disk('local')->files('private_uploads/users');
+        $this->assertCount(1, $storedFiles);
+        $this->assertNotEmpty(array_filter($storedFiles, fn ($path) => str_contains($path, 'MTL_Sa')));
+
+        $this->assertDatabaseHas('action_logs', [
+            'item_type' => User::class,
+            'item_id' => $receiver->id,
+            'action_type' => 'uploaded',
+        ]);
     }
 }

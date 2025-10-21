@@ -77,7 +77,6 @@ class MtlDocumentController extends Controller
      */
     private function generateDocument(User $giver, User $receiver, string $type): StreamedResponse
     {
-
         // Load the template
         $templateProcessor = new TemplateProcessor(storage_path('templates/mtl_template_v1.docx'));
 
@@ -90,15 +89,15 @@ class MtlDocumentController extends Controller
         $templateProcessor->setValue('pienem_personas_informacija', $this->formatPersonalInfo($receiver));
 
         // For now, jaunsarga_vards is the receiving person's name
-        $templateProcessor->setValue('jaunsarga_vards', $receiver->first_name . ' ' . $receiver->last_name);
+        $templateProcessor->setValue('jaunsarga_vards');
 
         // Set checkboxes - these could be made dynamic in the future
-        $templateProcessor->setValue('nodod_jcp', 'X');
+        $templateProcessor->setValue('nodod_jcp', '');
         $templateProcessor->setValue('nodod_pj', '');
         $templateProcessor->setValue('nodod_njlp', '');
 
         $templateProcessor->setValue('pienem_jcp', '');
-        $templateProcessor->setValue('pienem_pj', 'X');
+        $templateProcessor->setValue('pienem_pj', '');
         $templateProcessor->setValue('pienem_njlp', '');
 
         // Set current date in dd.mm.yyyy format (Riga timezone)
