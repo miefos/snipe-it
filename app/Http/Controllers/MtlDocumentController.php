@@ -41,8 +41,6 @@ class MtlDocumentController extends Controller
      * The user specified by $userId is the one giving away items (nodod)
      * The authenticated user is the one receiving items (pienem)
      *
-     * @author [Your Name]
-     * @since [v1.0]
      * @param int $userId The ID of the user giving away the items
      * @return StreamedResponse
      */
@@ -79,7 +77,7 @@ class MtlDocumentController extends Controller
         $templateProcessor->setValue('pienem_personas_informacija', $this->formatPersonalInfo($receiver));
 
         // For now, jaunsarga_vards is the receiving person's name
-        $templateProcessor->setValue('jaunsarga_vards');
+        $templateProcessor->setValue('jaunsarga_vards', '');
 
         // Set checkboxes - these could be made dynamic in the future
         $templateProcessor->setValue('nodod_jcp', '');
@@ -197,7 +195,6 @@ class MtlDocumentController extends Controller
             }
         }
 
-        // Convert to array
         $data = [];
         foreach ($grouped as $item) {
             $data[] = [
