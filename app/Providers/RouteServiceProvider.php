@@ -53,7 +53,6 @@ class RouteServiceProvider extends ServiceProvider
             require base_path('routes/web/kits.php');
             require base_path('routes/web.php');
 
-            // Custom routes - local modifications (to avoid merge conflicts during upgrades)
             if (file_exists(base_path('routes/web/custom.php'))) {
                 require base_path('routes/web/custom.php');
             }
