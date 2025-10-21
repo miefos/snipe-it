@@ -242,6 +242,28 @@
                   </div>
                 @endcan
 
+                @can('view', $user)
+                  <div class="col-md-12" style="padding-top: 5px;">
+                    <form action="{{ route('users.mtl.giving', ['userId' => $user->id]) }}" method="GET">
+                      <button class="btn-block btn btn-sm btn-info btn-social hidden-print" rel="noopener">
+                          <x-icon type="download" />
+                          Izsniegšanas MTL lapa
+                      </button>
+                    </form>
+                  </div>
+                @endcan
+
+                @can('view', $user)
+                  <div class="col-md-12" style="padding-top: 5px;">
+                    <form action="{{ route('users.mtl.receiving', ['userId' => $user->id]) }}" method="GET">
+                      <button class="btn-block btn btn-sm btn-success btn-social hidden-print" rel="noopener">
+                          <x-icon type="download" />
+                          Saņemšanas MTL lapa
+                      </button>
+                    </form>
+                  </div>
+                @endcan
+
                 @can('update', $user)
                   @if ((($user->deleted_at=='')) && ($user->activated == '1') && ($user->ldap_import == '0'))
                   <div class="col-md-12" style="padding-top: 5px;">

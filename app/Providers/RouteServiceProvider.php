@@ -52,6 +52,10 @@ class RouteServiceProvider extends ServiceProvider
             require base_path('routes/web/users.php');
             require base_path('routes/web/kits.php');
             require base_path('routes/web.php');
+
+            if (file_exists(base_path('routes/web/custom.php'))) {
+                require base_path('routes/web/custom.php');
+            }
         });
     }
 
