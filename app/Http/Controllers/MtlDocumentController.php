@@ -8,14 +8,6 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-// TODO: 1. based on user group (jaunsargi vs instruktori) set
-//       2. in user field - "notes" - parent information for underage students.
-//       3. in user field - "employee_num" - personal code (personas kods) for Latvian users.
-//       4. in user field - "start date" - date of birth for Latvian users.
-//       5. if user is underage (<18 years), add parent/guardian in nodod_persons_information and add the user's name and surname itself in jaunsarga_vards_uzvards
-//       6. if user is adult (>=18 years), add user themselves in nodod_persons_information and also add them in jaunsarga_vards_uzvards
-//       7.
-
 /**
  * This controller handles MTL (Material Transfer List) document generation
  * for the Snipe-IT Asset Management application.
@@ -30,8 +22,6 @@ class MtlDocumentController extends Controller
      * The authenticated user is the one giving away items (nodod)
      * The user specified by $userId is the one receiving items (pienem)
      *
-     * @author [Your Name]
-     * @since [v1.0]
      * @param int $userId The ID of the user receiving the items
      * @return StreamedResponse
      */
@@ -42,7 +32,7 @@ class MtlDocumentController extends Controller
 
         $authUser = auth()->user();
 
-        return $this->generateDocument($authUser, $user, 'Izsniegšanas');
+        return $this->generateDocument($authUser, $user, 'Izsniegšanas', $user);
     }
 
     /**
@@ -64,7 +54,7 @@ class MtlDocumentController extends Controller
         $authUser = auth()->user();
 
         // Reversed: user gives, authUser receives
-        return $this->generateDocument($user, $authUser, 'Saņemšanas');
+        return $this->generateDocument($user, $authUser, 'Saņemšanas', $user);
     }
 
     /**
@@ -73,11 +63,11 @@ class MtlDocumentController extends Controller
      * @param User $giver The user giving away items (nodod)
      * @param User $receiver The user receiving items (pienem)
      * @param string $type Document type for filename
+     * @param User $accessoryUser The user whose accessories to show
      * @return StreamedResponse
      */
-    private function generateDocument(User $giver, User $receiver, string $type): StreamedResponse
+    private function generateDocument(User $giver, User $receiver, string $type, User $accessoryUser): StreamedResponse
     {
-        // Load the template
         $templateProcessor = new TemplateProcessor(storage_path('templates/mtl_template_v1.docx'));
 
         // Fill in the "giving away" (nodod) data
@@ -103,8 +93,8 @@ class MtlDocumentController extends Controller
         // Set current date in dd.mm.yyyy format (Riga timezone)
         $templateProcessor->setValue('datums', now()->timezone('Europe/Riga')->format('d.m.Y'));
 
-        // Get accessories/items for the table (from receiver's assigned items)
-        $accessories = $this->getAccessoriesData($receiver);
+        // Get accessories/items for the table
+        $accessories = $this->getAccessoriesData($accessoryUser);
 
         // Fill in the accessories table
         $this->fillAccessoriesTable($templateProcessor, $accessories);
@@ -199,7 +189,6 @@ class MtlDocumentController extends Controller
                 ];
             }
 
-            // Increment quantity
             $grouped[$id]['quantity']++;
 
             // Keep only the first note
